@@ -95,6 +95,8 @@ END_OF_FUNCTION_USAGE
         then
             # Not a flag
             non_flagged_args+=("$1")
+            shift
+            continue
         fi
 
         local was_option_handled='false'
