@@ -45,29 +45,17 @@ _handle_args() {
     local function_id="$1"
     shift
 
-    if [[ -z "$function_id" ]]
-    then
-        echo "ERROR: Given <function_id> is empty."
-        exit 1
-    fi
+    define function_usage <<'END_OF_FUNCTION_USAGE'
+Usage: _handle_args <function_id> "$@"
+    <function_id>:
+        * Each function can have its own set of flags. The function id is used
+          for identifying which flags to parse and how to parse them.
+            - Function id can e.g. be the function name.
+        * Should be registered through register_function_flags() before calling
+          this function
+END_OF_FUNCTION_USAGE
 
-    local function_registered='false'
-    local function_index
-    for i in "${!_handle_args_registered_function_ids[@]}"
-    do
-        if [[ "${_handle_args_registered_function_ids[$i]}" == "$function_id" ]]
-        then
-            function_registered='true'
-            function_index=$i
-            break
-        fi
-    done
-
-    if [[ "$function_registered" != 'true' ]]
-    then
-        echo "ERROR: Function is not registered: '$function_id'"
-        exit 1
-    fi
+    _validate_input_handle_args
 
     # Convert space separated elements into an array
     IFS=' ' read -ra valid_short_options <<< "${_handle_args_registered_function_short_option[$function_index]}"
@@ -130,7 +118,10 @@ _handle_args() {
 
                     if [[ -z "$1" ]] || [[ "$first_character_hyphen" == 'true' ]]
                     then
-                        echo "Error: Option ${valid_short_options[$i]} (or ${valid_long_option[$i]}) expects a value"
+                        define error_info <<END_OF_ERROR_INFO
+Option ${valid_short_options[$i]} and ${valid_long_option[$i]}) expects a value supplied after it."
+END_OF_ERROR_INFO
+                        invalid_function_usage 1 "$function_usage" "$valid_long_option"
                         exit 1
                     fi
 
@@ -149,6 +140,41 @@ _handle_args() {
     done
 }
 
+_validate_input_handle_args()
+{
+    if [[ -z "$function_id" ]]
+    then
+        define error_info <<'END_OF_ERROR_INFO'
+Given <function_id> is empty.
+END_OF_ERROR_INFO
+        invalid_function_usage 2 "$function_usage" "$error_info"
+        exit 1
+    fi
+
+    # Check that <function_id> is registered through register_function_flags()
+    local function_registered='false'
+    local function_index
+    for i in "${!_handle_args_registered_function_ids[@]}"
+    do
+        if [[ "${_handle_args_registered_function_ids[$i]}" == "$function_id" ]]
+        then
+            function_registered='true'
+            function_index=$i
+            break
+        fi
+    done
+
+    if [[ "$function_registered" != 'true' ]]
+    then
+        define error_info <<END_OF_ERROR_INFO
+Given <function_id> is not registered through register_function_flags() before
+calling _handle_args(). <function_id>: '$function_id'
+END_OF_ERROR_INFO
+        invalid_function_usage 2 "$function_usage" "$error_info"
+        exit 1
+    fi
+}
+
 # Arrays to store _handle_args() data
 _handle_args_registered_function_ids=()
 _handle_args_registered_function_short_option=()
@@ -158,22 +184,36 @@ _handle_args_registered_function_values=()
 # Register valid flags for a function
 register_function_flags() {
     local function_id="$1"
-    shift 
+    shift
 
-    if [[ -z "$function_id" ]]
-    then
-        echo "ERROR: Function name is empty"
-        exit 1
-    fi
+    define function_usage <<END_OF_FUNCTION_USAGE
+Usage: register_function_flags <function_id> \
+                               <short_flag_1> <long_flag_1> <expect_value_1> \
+                               <short_flag_2> <long_flag_2> <expect_value_2> \
+                               ...
+    Registers how many function flags as you want, always in a set of 3 input
+    arguments: <short_flag> <long_flag> <expect_value>
+    
+    Either of <short_flag> or <long_flag> can be empty, but must then be entered
+    as an empty string "".
 
-    for registered in "${_handle_args_registered_function_ids[@]}"
-    do
-        if [[ "$function_id" == "$registered" ]]
-        then
-            echo "ERROR: Function name already registered: '$function_id'"
-            exit 1
-        fi
-    done
+    <function_id>:
+        * Each function can have its own set of flags. The function id is used
+          for identifying which flags to parse and how to parse them.
+            - Function id can e.g. be the function name.
+    <short_flag_#>:
+        * Single dash flag.
+        * E.g. '-e'
+    <long_flag_#>:
+        * Double dash flag
+        * E.g. '--echo'
+    <expect_value_#>:
+        * String boolean which indicates if an associated value is expected
+          after the flag.
+        * 'true' = There shall be a value supplied after the flag
+END_OF_FUNCTION_USAGE
+
+    _validate_input_register_function_flags
 
     local short_option=()
     local long_option=()
@@ -183,7 +223,10 @@ register_function_flags() {
 
         if [[ -z "$1" ]] && [[ -z "$2"  ]]
         then
-            echo "ERROR: Neither short or long option given for '$function_id'."
+            define error_info <<END_OF_ERROR_INFO
+Neither short or long flag were given for <function_id>: '$function_id'
+END_OF_ERROR_INFO
+            invalid_function_usage 1 "$function_usage" "$error_info"
             exit 1
         fi
 
@@ -202,6 +245,30 @@ register_function_flags() {
     _handle_args_registered_function_short_option+=("${short_option[*]}")
     _handle_args_registered_function_long_option+=("${long_option[*]}")
     _handle_args_registered_function_values+=("${expect_value[*]}")
+}
+
+_validate_input_register_function_flags()
+{
+    if [[ -z "$function_id" ]]
+    then
+        define error_info <<END_OF_ERROR_INFO
+Given <function_id> is empty.
+END_OF_ERROR_INFO
+        invalid_function_usage 2 "$function_usage" "$error_info"
+        exit 1
+    fi
+
+    for registered in "${_handle_args_registered_function_ids[@]}"
+    do
+        if [[ "$function_id" == "$registered" ]]
+        then
+            define error_info <<END_OF_ERROR_INFO
+Given <function_id> is already registered: '$function_id'
+END_OF_ERROR_INFO
+            invalid_function_usage 2 "$function_usage" "$error_info"
+            exit 1
+        fi
+    done
 }
 
 # Used for handling arrays as function parameters
