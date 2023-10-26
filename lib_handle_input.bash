@@ -119,9 +119,9 @@ END_OF_FUNCTION_USAGE
                     if [[ -z "$1" ]] || [[ "$first_character_hyphen" == 'true' ]]
                     then
                         define error_info <<END_OF_ERROR_INFO
-Option ${valid_short_options[$i]} and ${valid_long_option[$i]}) expects a value supplied after it."
+Option ${valid_short_options[$i]} and ${valid_long_option[$i]} expects a value supplied after it."
 END_OF_ERROR_INFO
-                        invalid_function_usage 1 "$function_usage" "$valid_long_option"
+                        invalid_function_usage 1 "$function_usage" "$error_info"
                         exit 1
                     fi
 
