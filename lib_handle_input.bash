@@ -89,6 +89,12 @@ END_OF_FUNCTION_USAGE
     # While there are input arguments left
     while [[ -n "$1" ]]
     do
+        if ! is_short_flag "$1" && ! is_long_flag "$1"
+        then
+            # Not a flag
+            non_flagged_args+=("$1")
+        fi
+
         local was_option_handled='false'
 
         for i in "${!valid_short_options[@]}"
@@ -131,10 +137,16 @@ END_OF_ERROR_INFO
 
                 was_option_handled='true'
                 break
+            else
+                # Flag is not registered
+
+                define error_info <<END_OF_ERROR_INFO
+Given flag '$1' is not registered for function id: '$function_id'
+END_OF_ERROR_INFO
+                invalid_function_usage 1 "$function_usage" "$error_info"
+                exit 1
             fi
         done
-
-        [[ "$was_option_handled" == 'false' ]] && non_flagged_args+=("$1")
 
         shift
     done
@@ -213,15 +225,38 @@ Usage: register_function_flags <function_id> \
         * 'true' = There shall be a value supplied after the flag
 END_OF_FUNCTION_USAGE
 
-    _validate_input_register_function_flags
+    if [[ -z "$function_id" ]]
+    then
+        define error_info <<END_OF_ERROR_INFO
+Given <function_id> is empty.
+END_OF_ERROR_INFO
+        invalid_function_usage 2 "$function_usage" "$error_info"
+        exit 1
+    fi
+
+    # Check if function id already registered
+    for registered in "${_handle_args_registered_function_ids[@]}"
+    do
+        if [[ "$function_id" == "$registered" ]]
+        then
+            define error_info <<END_OF_ERROR_INFO
+Given <function_id> is already registered: '$function_id'
+END_OF_ERROR_INFO
+            invalid_function_usage 2 "$function_usage" "$error_info"
+            exit 1
+        fi
+    done
 
     local short_option=()
     local long_option=()
     local expect_value=()
     while (( $# > 1 ))
     do
+        local input_short_flag="$1"
+        local input_long_flag="$2"
+        local input_expect_value="$3"
 
-        if [[ -z "$1" ]] && [[ -z "$2"  ]]
+        if [[ -z "$input_short_flag" ]] && [[ -z "$input_long_flag"  ]]
         then
             define error_info <<END_OF_ERROR_INFO
 Neither short or long flag were given for <function_id>: '$function_id'
@@ -230,9 +265,63 @@ END_OF_ERROR_INFO
             exit 1
         fi
 
-        [[ -z "$1" ]] && short_option+=("_") || short_option+=("$1")
-        [[ -z "$2" ]] && long_option+=("_") || long_option+=("$2")
-        [[ -z "$3" ]] && expect_value+=("_") || expect_value+=("$3")
+        if ! is_short_flag "$input_short_flag"
+        then
+            local flag_exit_code=$?
+
+            case $flag_exit_code in
+                1)  ;; # Input flag empty
+                2)
+                    define error_info <<END_OF_ERROR_INFO
+Invalid short flag format: '$input_short_flag'
+Must start with a single hyphen '-'
+END_OF_ERROR_INFO
+                    invalid_function_usage 2 "$function_usage" "$error_info"
+                    exit 1
+                    ;;
+                3)
+                    define error_info <<END_OF_ERROR_INFO
+Invalid short flag format: '$input_short_flag'
+Must have exactly a single letter after the hyphen '-'
+END_OF_ERROR_INFO
+                    invalid_function_usage 2 "$function_usage" "$error_info"
+                    exit 1
+                    ;;
+                *)  ;;
+            esac
+        fi
+
+        # Validate long flag format, if not empty
+        if ! is_long_flag "$input_long_flag"
+        then
+            local flag_exit_code=$?
+            
+            case $flag_exit_code in
+                1)  ;; # Input flag empty
+                2)
+                    define error_info <<END_OF_ERROR_INFO
+Invalid long flag format: '$input_long_flag'
+Must start with double hyphen '--'
+END_OF_ERROR_INFO
+                    invalid_function_usage 2 "$function_usage" "$error_info"
+                    exit 1
+                    ;;
+                3)
+                    define error_info <<END_OF_ERROR_INFO
+Invalid long flag format: '$input_long_flag'
+Characters after '--' must start with a letter or underscore and can only
+contain letters, numbers and underscores thereafter.
+END_OF_ERROR_INFO
+                    invalid_function_usage 2 "$function_usage" "$error_info"
+                    exit 1
+                    ;;
+                *)  ;;
+            esac
+        fi
+
+        [[ -z "$input_short_flag" ]] && short_option+=("_") || short_option+=("$1")
+        [[ -z "$input_long_flag" ]] && long_option+=("_") || long_option+=("$2")
+        [[ -z "$input_expect_value" ]] && expect_value+=("_") || expect_value+=("$3")
 
         shift 3  # Move past option, long option, and value expectation
     done
@@ -245,30 +334,6 @@ END_OF_ERROR_INFO
     _handle_args_registered_function_short_option+=("${short_option[*]}")
     _handle_args_registered_function_long_option+=("${long_option[*]}")
     _handle_args_registered_function_values+=("${expect_value[*]}")
-}
-
-_validate_input_register_function_flags()
-{
-    if [[ -z "$function_id" ]]
-    then
-        define error_info <<END_OF_ERROR_INFO
-Given <function_id> is empty.
-END_OF_ERROR_INFO
-        invalid_function_usage 2 "$function_usage" "$error_info"
-        exit 1
-    fi
-
-    for registered in "${_handle_args_registered_function_ids[@]}"
-    do
-        if [[ "$function_id" == "$registered" ]]
-        then
-            define error_info <<END_OF_ERROR_INFO
-Given <function_id> is already registered: '$function_id'
-END_OF_ERROR_INFO
-            invalid_function_usage 2 "$function_usage" "$error_info"
-            exit 1
-        fi
-    done
 }
 
 # Used for handling arrays as function parameters
@@ -310,4 +375,45 @@ handle_input_arrays_dynamically()
         done
         ((array_suffix++))
     done
+}
+
+is_short_flag()
+{
+    local to_check="$1"
+
+    [[ -z "$input_short_flag" ]] && return 1
+
+    # Check that it starts with a single hyphen, not double
+    [[ "$input_short_flag" =~ ^-[^-] ]] || return 2
+
+    # Check that it has a single character after the hypen
+    [[ "$input_short_flag" =~ ^-[[:alpha:]]$ ]] || return 3
+
+    return 0
+}
+
+is_long_flag()
+{
+    local to_check="$1"
+
+    [[ -z "$to_check" ]] && return 1
+
+    [[ "$to_check" =~ ^-- ]] || return 2
+
+    # TODO: Update such that the flag can contain hyphen. It is not
+    #       valid variable naming, which means you need to handle the
+    #       variable names created from the long flag. E.g.
+    #       --hello-there would now try to create a variable
+    #       'hello-there_flag' and 'hello-there_flag_value'.
+    #       Solution is probably to just remove hyphens:
+    #       'hellothere_flag' and 'hellothere_flag_value'
+    # TODO: Update such that we cannot have the long flags '--_', '--__'
+    #       etc.
+    valid_var_name "${to_check#--}" || return 3
+
+    return 0
+}
+
+valid_var_name() {
+    grep -q '^[_[:alpha:]][_[:alpha:][:digit:]]*$' <<< "$1"
 }
