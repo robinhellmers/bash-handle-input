@@ -56,6 +56,8 @@ Usage: _handle_args <function_id> "$@"
 END_OF_FUNCTION_USAGE
 
     _validate_input_handle_args
+    # Output:
+    # function_index
 
     # Convert space separated elements into an array
     IFS=' ' read -ra valid_short_options <<< "${_handle_args_registered_function_short_option[$function_index]}"
@@ -137,16 +139,17 @@ END_OF_ERROR_INFO
 
                 was_option_handled='true'
                 break
-            else
-                # Flag is not registered
-
-                define error_info <<END_OF_ERROR_INFO
-Given flag '$1' is not registered for function id: '$function_id'
-END_OF_ERROR_INFO
-                invalid_function_usage 1 "$function_usage" "$error_info"
-                exit 1
             fi
         done
+
+        if [[ "$was_option_handled" != 'true' ]]
+        then
+            define error_info <<END_OF_ERROR_INFO
+Given flag '$1' is not registered for function id: '$function_id'
+END_OF_ERROR_INFO
+            invalid_function_usage 1 "$function_usage" "$error_info"
+            exit 1
+        fi
 
         shift
     done
@@ -165,7 +168,6 @@ END_OF_ERROR_INFO
 
     # Check that <function_id> is registered through register_function_flags()
     local function_registered='false'
-    local function_index
     for i in "${!_handle_args_registered_function_ids[@]}"
     do
         if [[ "${_handle_args_registered_function_ids[$i]}" == "$function_id" ]]
