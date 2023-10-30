@@ -323,6 +323,17 @@ END_OF_ERROR_INFO
             esac
         fi
 
+        # Check if 'input_expect_value' was given
+        if [[ "$input_expect_value" != 'true' && "$input_expect_value" != 'false' ]]
+        then
+            define error_info << END_OF_ERROR_INFO
+Invalid 'expect_value': '$input_expect_value'
+Must have the value of 'true' or 'false'.
+END_OF_ERROR_INFO
+            invalid_function_usage 1 "$function_usage" "$error_info"
+            exit 1
+        fi
+
         [[ -z "$input_short_flag" ]] && short_option+=("_") || short_option+=("$1")
         [[ -z "$input_long_flag" ]] && long_option+=("_") || long_option+=("$2")
         [[ -z "$input_expect_value" ]] && expect_value+=("_") || expect_value+=("$3")
