@@ -396,13 +396,13 @@ is_short_flag()
 {
     local to_check="$1"
 
-    [[ -z "$input_short_flag" ]] && return 1
+    [[ -z "$to_check" ]] && return 1
 
     # Check that it starts with a single hyphen, not double
-    [[ "$input_short_flag" =~ ^-[^-] ]] || return 2
+    [[ "$to_check" =~ ^-[^-] ]] || return 2
 
     # Check that it has a single character after the hypen
-    [[ "$input_short_flag" =~ ^-[[:alpha:]]$ ]] || return 3
+    [[ "$to_check" =~ ^-[[:alpha:]]$ ]] || return 3
 
     return 0
 }
