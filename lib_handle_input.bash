@@ -76,7 +76,8 @@ END_OF_FUNCTION_USAGE
         # Prefer the long option name if it exists
         if [[ "${valid_long_option[$i]}" != "_" ]]
         then
-            derived_flag_name="${valid_long_option[$i]#--}_flag"
+            derived_flag_name=$(get_long_flag_var_name "${valid_long_option[$i]}")
+            derived_flag_name="${derived_flag_name}_flag"
         else
             derived_flag_name="${valid_short_options[$i]#-}_flag"
         fi
@@ -131,7 +132,8 @@ END_OF_FUNCTION_USAGE
                 # Prefer the long option name if it exists
                 if [[ "${valid_long_option[$i]}" != "_" ]]
                 then
-                    derived_flag_name="${valid_long_option[$i]#--}_flag"
+                    derived_flag_name=$(get_long_flag_var_name "${valid_long_option[$i]}")
+                    derived_flag_name="${derived_flag_name}_flag"
                 else
                     derived_flag_name="${valid_short_options[$i]#-}_flag"
                 fi
@@ -435,18 +437,26 @@ is_long_flag()
 
     [[ "$to_check" =~ ^-- ]] || return 2
 
-    # TODO: Update such that the flag can contain hyphen. It is not
-    #       valid variable naming, which means you need to handle the
-    #       variable names created from the long flag. E.g.
-    #       --hello-there would now try to create a variable
-    #       'hello-there_flag' and 'hello-there_flag_value'.
-    #       Solution is probably to just remove hyphens:
-    #       'hellothere_flag' and 'hellothere_flag_value'
     # TODO: Update such that we cannot have the long flags '--_', '--__'
     #       etc.
-    valid_var_name "${to_check#--}" || return 3
+    get_long_flag_var_name "$to_check" &>/dev/null || return 3
 
     return 0
+}
+
+# Outputs valid variable name if the flag is valid, replaces hyphen with underscore
+get_long_flag_var_name()
+{
+    local long_flag="${1#--}" # Remove initial --
+
+    grep -q '^[[:alpha:]][-[:alpha:][:digit:]]*$' <<< "$long_flag" || return 1
+
+    # Replace hyphens with underscore
+    local var_name=$(sed 's/-/_/g' <<< "$long_flag")
+
+    valid_var_name "$var_name" || return 1
+
+    echo "$var_name"
 }
 
 valid_var_name() {
