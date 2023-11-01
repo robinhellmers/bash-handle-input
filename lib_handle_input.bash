@@ -41,7 +41,8 @@ init_lib
 #####################
 
 # Process flags & non-optional arguments
-_handle_args() {
+_handle_args()
+{
     local function_id="$1"
     shift
 
@@ -92,7 +93,25 @@ END_OF_FUNCTION_USAGE
     # While there are input arguments left
     while [[ -n "$1" ]]
     do
-        if ! is_short_flag "$1" && ! is_long_flag "$1"
+        is_long_flag "$1"; is_long_flag_exit_code=$?
+
+        if (( $is_long_flag_exit_code == 3 ))
+        then
+            # TODO: Update such that '-' can be used in the flag name
+            define error_info << END_OF_ERROR_INFO
+Given long flag have invalid format, cannot create variable name from it: '$1'
+END_OF_ERROR_INFO
+
+            define function_usage_register_function_flags << END_OF_FUNCTION_USAGE
+Registered flags through register_function_flags() must follow the valid_var_name() validation.
+END_OF_FUNCTION_USAGE
+
+            # TODO: Replace with more general error
+            invalid_function_usage 0 "$function_usage_register_function_flags" "$error_info"
+            exit 1
+        fi
+
+        if ! is_short_flag "$1" && (( is_long_flag_exit_code != 0))
         then
             # Not a flag
             non_flagged_args+=("$1")
