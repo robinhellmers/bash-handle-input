@@ -88,6 +88,7 @@ END_OF_FUNCTION_USAGE
         fi
     done
 
+    non_flagged_args=()
     # While there are input arguments left
     while [[ -n "$1" ]]
     do
