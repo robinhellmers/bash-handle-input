@@ -392,7 +392,7 @@ END_OF_ERROR_INFO
         expect_value+=("$input_expect_value")
         description+=("$input_description")
 
-        shift 4  # Move past option, long option, and value expectation
+        shift 4
     done
 
     ### Append to global arrays
