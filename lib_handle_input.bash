@@ -226,11 +226,11 @@ register_function_flags() {
 
     define function_usage <<END_OF_FUNCTION_USAGE
 Usage: register_function_flags <function_id> \
-                               <short_flag_1> <long_flag_1> <expect_value_1> \
-                               <short_flag_2> <long_flag_2> <expect_value_2> \
+                               <short_flag_1> <long_flag_1> <expect_value_1> <description_1> \
+                               <short_flag_2> <long_flag_2> <expect_value_2> <description_2> \
                                ...
-    Registers how many function flags as you want, always in a set of 3 input
-    arguments: <short_flag> <long_flag> <expect_value>
+    Registers how many function flags as you want, always in a set of 4 input
+    arguments: <short_flag> <long_flag> <expect_value> <description>
     
     Either of <short_flag> or <long_flag> can be empty, but must then be entered
     as an empty string "".
@@ -249,6 +249,8 @@ Usage: register_function_flags <function_id> \
         * String boolean which indicates if an associated value is expected
           after the flag.
         * 'true' = There shall be a value supplied after the flag
+    <description_#>:
+        * Text description of the flag
 END_OF_FUNCTION_USAGE
 
     if [[ -z "$function_id" ]]
@@ -276,11 +278,13 @@ END_OF_ERROR_INFO
     local short_option=()
     local long_option=()
     local expect_value=()
+    local description=()
     while (( $# > 1 ))
     do
         local input_short_flag="$1"
         local input_long_flag="$2"
         local input_expect_value="$3"
+        local input_description="$4"
 
         if [[ -z "$input_short_flag" ]] && [[ -z "$input_long_flag"  ]]
         then
@@ -356,11 +360,31 @@ END_OF_ERROR_INFO
             exit 1
         fi
 
+        # Check if 'input_description' was given
+        if [[ -z "$input_description" ]]
+        then
+            local flag_indicator
+            if [[ -n "$input_long_flag" ]]
+            then
+                flag_indicator="$input_long_flag"
+            else
+                flag_indicator="$input_short_flag"
+            fi
+
+            define error_info << END_OF_ERROR_INFO
+Missing input 'description' for flag '$flag_indicator'
+END_OF_ERROR_INFO
+            invalid_function_usage 1 "$function_usage" "$error_info"
+            exit 1
+        fi
+
         [[ -z "$input_short_flag" ]] && short_option+=("_") || short_option+=("$1")
         [[ -z "$input_long_flag" ]] && long_option+=("_") || long_option+=("$2")
         [[ -z "$input_expect_value" ]] && expect_value+=("_") || expect_value+=("$3")
 
-        shift 3  # Move past option, long option, and value expectation
+        description+=("$input_description")
+
+        shift 4  # Move past option, long option, and value expectation
     done
 
     ### Append to global arrays
