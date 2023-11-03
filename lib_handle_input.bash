@@ -64,6 +64,7 @@ END_OF_FUNCTION_USAGE
     IFS=' ' read -ra valid_short_options <<< "${_handle_args_registered_function_short_option[$function_index]}"
     IFS=' ' read -ra valid_long_option <<< "${_handle_args_registered_function_long_option[$function_index]}"
     IFS=' ' read -ra expects_value <<< "${_handle_args_registered_function_values[$function_index]}"
+    IFS=' ' read -ra descriptions <<< "${_handle_args_registered_function_descriptions[$function_index]}"
 
     # Declare and initialize output variables
     # <long/short option>_flag = 'false'
@@ -403,6 +404,7 @@ END_OF_ERROR_INFO
     _handle_args_registered_function_short_option+=("${short_option[*]}")
     _handle_args_registered_function_long_option+=("${long_option[*]}")
     _handle_args_registered_function_values+=("${expect_value[*]}")
+    _handle_args_registered_function_descriptions+=("${description[*]}")
 }
 
 # Used for handling arrays as function parameters
