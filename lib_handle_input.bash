@@ -350,7 +350,15 @@ END_OF_ERROR_INFO
         fi
 
         # Check if 'input_expect_value' was given
-        if [[ "$input_expect_value" != 'true' && "$input_expect_value" != 'false' ]]
+        if [[ -z "$input_expect_value" ]]
+        then
+            define error_info << END_OF_ERROR_INFO
+Missing input 'expect_value'
+Must have the value of 'true' or 'false'.
+END_OF_ERROR_INFO
+            invalid_function_usage 1 "$function_usage" "$error_info"
+            exit 1
+        elif [[ "$input_expect_value" != 'true' && "$input_expect_value" != 'false' ]]
         then
             define error_info << END_OF_ERROR_INFO
 Invalid 'expect_value': '$input_expect_value'
@@ -380,8 +388,8 @@ END_OF_ERROR_INFO
 
         [[ -z "$input_short_flag" ]] && short_option+=("_") || short_option+=("$1")
         [[ -z "$input_long_flag" ]] && long_option+=("_") || long_option+=("$2")
-        [[ -z "$input_expect_value" ]] && expect_value+=("_") || expect_value+=("$3")
 
+        expect_value+=("$input_expect_value")
         description+=("$input_description")
 
         shift 4  # Move past option, long option, and value expectation
