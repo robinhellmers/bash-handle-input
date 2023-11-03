@@ -258,7 +258,7 @@ END_OF_FUNCTION_USAGE
         define error_info <<END_OF_ERROR_INFO
 Given <function_id> is empty.
 END_OF_ERROR_INFO
-        invalid_function_usage 2 "$function_usage" "$error_info"
+        invalid_function_usage 1 "$function_usage" "$error_info"
         exit 1
     fi
 
@@ -270,7 +270,7 @@ END_OF_ERROR_INFO
             define error_info <<END_OF_ERROR_INFO
 Given <function_id> is already registered: '$function_id'
 END_OF_ERROR_INFO
-            invalid_function_usage 2 "$function_usage" "$error_info"
+            invalid_function_usage 1 "$function_usage" "$error_info"
             exit 1
         fi
     done
@@ -306,7 +306,7 @@ END_OF_ERROR_INFO
 Invalid short flag format: '$input_short_flag'
 Must start with a single hyphen '-'
 END_OF_ERROR_INFO
-                    invalid_function_usage 2 "$function_usage" "$error_info"
+                    invalid_function_usage 1 "$function_usage" "$error_info"
                     exit 1
                     ;;
                 3)
@@ -314,7 +314,7 @@ END_OF_ERROR_INFO
 Invalid short flag format: '$input_short_flag'
 Must have exactly a single letter after the hyphen '-'
 END_OF_ERROR_INFO
-                    invalid_function_usage 2 "$function_usage" "$error_info"
+                    invalid_function_usage 1 "$function_usage" "$error_info"
                     exit 1
                     ;;
                 *)  ;;
@@ -333,7 +333,7 @@ END_OF_ERROR_INFO
 Invalid long flag format: '$input_long_flag'
 Must start with double hyphen '--'
 END_OF_ERROR_INFO
-                    invalid_function_usage 2 "$function_usage" "$error_info"
+                    invalid_function_usage 1 "$function_usage" "$error_info"
                     exit 1
                     ;;
                 3)
@@ -342,7 +342,7 @@ Invalid long flag format: '$input_long_flag'
 Characters after '--' must start with a letter or underscore and can only
 contain letters, numbers and underscores thereafter.
 END_OF_ERROR_INFO
-                    invalid_function_usage 2 "$function_usage" "$error_info"
+                    invalid_function_usage 1 "$function_usage" "$error_info"
                     exit 1
                     ;;
                 *)  ;;
