@@ -45,6 +45,7 @@ _handle_args()
 {
     local function_id="$1"
     shift
+    local arguments=("$@")
 
     define function_usage <<'END_OF_FUNCTION_USAGE'
 Usage: _handle_args <function_id> "$@"
@@ -60,11 +61,92 @@ END_OF_FUNCTION_USAGE
     # Output:
     # function_index
 
+    local valid_short_options
+    local valid_long_options
+    local flags_descriptions
     # Convert space separated elements into an array
-    IFS=' ' read -ra valid_short_options <<< "${_handle_args_registered_function_short_option[$function_index]}"
-    IFS=' ' read -ra valid_long_option <<< "${_handle_args_registered_function_long_option[$function_index]}"
-    IFS=' ' read -ra expects_value <<< "${_handle_args_registered_function_values[$function_index]}"
-    IFS=' ' read -ra descriptions <<< "${_handle_args_registered_function_descriptions[$function_index]}"
+    IFS='§' read -ra valid_short_options <<< "${_handle_args_registered_function_short_option[function_index]}"
+    IFS='§' read -ra valid_long_options <<< "${_handle_args_registered_function_long_option[function_index]}"
+    IFS='§' read -ra flags_descriptions <<< "${_handle_args_registered_function_descriptions[function_index]}"
+
+    local expects_value="${_handle_args_registered_function_values[function_index]}"
+    local registered_help_text="${_handle_args_registered_help_text[function_help_text_index]}"
+
+    # Look for help flag -h/--help 
+    for arg in "${arguments[@]}"
+    do
+        if [[ "$arg" == '-h' ]] || [[ "$arg" == '--help' ]]
+        then
+            
+            ###
+            # Compile together the whole help text with flag descriptions
+            local help_text
+            define help_text << END_OF_HELP_TEXT
+Usage: ${registered_help_text}
+
+Options:
+END_OF_HELP_TEXT
+
+            local array_flag_description_line=()
+            local max_line_length=0
+
+            ### 
+            # Construct help text lines & find max line length
+            for i in "${!flags_descriptions[@]}"
+            do
+                local flag_description_line="  "
+
+                # Short flag
+                if [[ "${valid_short_options[i]}" != '_' ]]
+                then
+                    flag_description_line+="${valid_short_options[i]}, "
+                fi
+
+                # Long flag
+                if [[ "${valid_long_options[i]}" != '_' ]]
+                then
+                    flag_description_line+="${valid_long_options[i]}"
+                fi
+                
+                flag_description_line+="   "
+
+                local line_length=$(wc -m <<< "$flag_description_line")
+                (( line_length-- ))
+                (( line_length > max_line_length )) && max_line_length=$line_length
+
+                array_flag_description_line+=("$flag_description_line")
+            done
+
+            ### 
+            # Reconstruct lines with good whitespacing using max line length
+            for i in "${!array_flag_description_line[@]}"
+            do
+                local flag_description_line="${array_flag_description_line[i]}"
+                local line_length=$(wc -m <<< "$flag_description_line")
+                ((line_length--))
+
+                local extra_whitespace=''
+                if (( line_length < max_line_length ))
+                then
+                    local diff_length=$((max_line_length - line_length))
+                    extra_whitespace="$(printf "%.s " $(seq $diff_length))"
+                fi
+
+                flag_description_line="${flag_description_line}${extra_whitespace}${flags_descriptions[i]}"
+                array_flag_description_line[i]="$flag_description_line"
+            done
+
+            ###
+            # Output text
+            echo "$help_text"
+            for line in "${array_flag_description_line[@]}"
+            do
+                echo "$line"
+            done
+
+            exit 0
+        fi
+    done
 
     # Declare and initialize output variables
     # <long/short option>_flag = 'false'
@@ -75,9 +157,9 @@ END_OF_FUNCTION_USAGE
         
         # Find out variable naming prefix
         # Prefer the long option name if it exists
-        if [[ "${valid_long_option[$i]}" != "_" ]]
+        if [[ "${valid_long_options[$i]}" != "_" ]]
         then
-            derived_flag_name=$(get_long_flag_var_name "${valid_long_option[$i]}")
+            derived_flag_name=$(get_long_flag_var_name "${valid_long_options[$i]}")
             derived_flag_name="${derived_flag_name}_flag"
         else
             derived_flag_name="${valid_short_options[$i]#-}_flag"
@@ -92,16 +174,15 @@ END_OF_FUNCTION_USAGE
     done
 
     non_flagged_args=()
-    # While there are input arguments left
-    while [[ -n "$1" ]]
+    for i in "${arguments[@]}"
     do
-        is_long_flag "$1"; is_long_flag_exit_code=$?
+        is_long_flag "${arguments[i]}"; is_long_flag_exit_code=$?
 
         if (( $is_long_flag_exit_code == 3 ))
         then
             # TODO: Update such that '-' can be used in the flag name
             define error_info << END_OF_ERROR_INFO
-Given long flag have invalid format, cannot create variable name from it: '$1'
+Given long flag have invalid format, cannot create variable name from it: '${arguments[i]}'
 END_OF_ERROR_INFO
 
             define function_usage_register_function_flags << END_OF_FUNCTION_USAGE
@@ -113,11 +194,10 @@ END_OF_FUNCTION_USAGE
             exit 1
         fi
 
-        if ! is_short_flag "$1" && (( is_long_flag_exit_code != 0))
+        if ! is_short_flag "${arguments[i]}" && (( is_long_flag_exit_code != 0))
         then
             # Not a flag
-            non_flagged_args+=("$1")
-            shift
+            non_flagged_args+=("${arguments[i]}")
             continue
         fi
 
@@ -126,14 +206,15 @@ END_OF_FUNCTION_USAGE
         for i in "${!valid_short_options[@]}"
         do
             local derived_flag_name=""
-            if [[ "$1" == "${valid_long_option[$i]}" ]] || [[ "$1" == "${valid_short_options[$i]}" ]]
+            if [[ "${arguments[i]}" == "${valid_long_options[$i]}" ]] || \
+               [[ "${arguments[i]}" == "${valid_short_options[$i]}" ]]
             then
                 
                 # Find out variable naming prefix
                 # Prefer the long option name if it exists
-                if [[ "${valid_long_option[$i]}" != "_" ]]
+                if [[ "${valid_long_options[$i]}" != "_" ]]
                 then
-                    derived_flag_name=$(get_long_flag_var_name "${valid_long_option[$i]}")
+                    derived_flag_name=$(get_long_flag_var_name "${valid_long_options[$i]}")
                     derived_flag_name="${derived_flag_name}_flag"
                 else
                     derived_flag_name="${valid_short_options[$i]#-}_flag"
@@ -144,22 +225,22 @@ END_OF_FUNCTION_USAGE
 
                 if [[ "${expects_value[$i]}" == 'true' ]]
                 then
-                    shift
+                    ((i++))
 
                     local first_character_hyphen='false'
-                    [[ "${1:0:1}" == "-" ]] && first_character_hyphen='true'
+                    [[ "${arguments[i]:0:1}" == "-" ]] && first_character_hyphen='true'
 
-                    if [[ -z "$1" ]] || [[ "$first_character_hyphen" == 'true' ]]
+                    if [[ -z "${arguments[i]}" ]] || [[ "$first_character_hyphen" == 'true' ]]
                     then
                         define error_info <<END_OF_ERROR_INFO
-Option ${valid_short_options[$i]} and ${valid_long_option[$i]} expects a value supplied after it."
+Option ${valid_short_options[$i]} and ${valid_long_options[$i]} expects a value supplied after it."
 END_OF_ERROR_INFO
                         invalid_function_usage 1 "$function_usage" "$error_info"
                         exit 1
                     fi
 
                     # Store given value after flag
-                    declare -g "${derived_flag_name}_value"="$1"
+                    declare -g "${derived_flag_name}_value"="${arguments[i]}"
                 fi
 
                 was_option_handled='true'
@@ -170,13 +251,11 @@ END_OF_ERROR_INFO
         if [[ "$was_option_handled" != 'true' ]]
         then
             define error_info <<END_OF_ERROR_INFO
-Given flag '$1' is not registered for function id: '$function_id'
+Given flag '${arguments[i]}' is not registered for function id: '$function_id'
 END_OF_ERROR_INFO
             invalid_function_usage 1 "$function_usage" "$error_info"
             exit 1
         fi
-
-        shift
     done
 }
 
@@ -191,6 +270,7 @@ END_OF_ERROR_INFO
         exit 1
     fi
 
+    ###
     # Check that <function_id> is registered through register_function_flags()
     local function_registered='false'
     for i in "${!_handle_args_registered_function_ids[@]}"
@@ -208,6 +288,94 @@ END_OF_ERROR_INFO
         define error_info <<END_OF_ERROR_INFO
 Given <function_id> is not registered through register_function_flags() before
 calling _handle_args(). <function_id>: '$function_id'
+END_OF_ERROR_INFO
+        invalid_function_usage 2 "$function_usage" "$error_info"
+        exit 1
+    fi
+
+    ###
+    # Check that <function_id> is registered through register_help_text()
+    local function_help_text_registered='false'
+    for i in "${!_handle_args_registered_help_text_function_ids[@]}"
+    do
+        if [[ "${_handle_args_registered_help_text_function_ids[$i]}" == "$function_id" ]]
+        then
+            function_help_text_registered='true'
+            function_help_text_index=$i
+            break
+        fi
+    done
+
+    if [[ "$function_help_text_registered" != 'true' ]]
+    then
+        define error_info <<END_OF_ERROR_INFO
+Given <function_id> is not registered through register_help_text() before
+calling _handle_args(). <function_id>: '$function_id'
+END_OF_ERROR_INFO
+        invalid_function_usage 2 "$function_usage" "$error_info"
+        exit 1
+    fi
+}
+
+# Arrays to store _handle_args() help text data
+_handle_args_registered_help_text_function_ids=()
+_handle_args_registered_help_text=()
+
+register_help_text()
+{
+    local function_id="$1"
+    local help_text="$2"
+
+    _validate_input_register_help_text    
+
+    _handle_args_registered_help_text_function_ids+=("$function_id")
+    _handle_args_registered_help_text+=("$help_text")
+}
+
+_validate_input_register_help_text()
+{
+    define function_usage <<END_OF_FUNCTION_USAGE
+Usage: register_help_text <function_id> <help_text>
+
+<function_id>:
+    * Each function can have its own set of flags and help text. The function id is used
+      for identifying which flags and help text to use. Must be the same function id as
+      when registering through register_function_flags().
+        - Function id can e.g. be the function name.
+<help_text>:
+    * Multi-line help text where the first line should have the form like e.g.:
+        'register_help_text <function_id> <help_text>'
+      Followed by an empty line and thereafter optional multi-line description.
+    * Shall not include flag description as that is added automatically using the text
+      registered through register_function_flags().
+END_OF_FUNCTION_USAGE
+
+    if [[ -z "$function_id" ]]
+    then
+        define error_info <<END_OF_ERROR_INFO
+Given <function_id> is empty.
+END_OF_ERROR_INFO
+        invalid_function_usage 2 "$function_usage" "$error_info"
+        exit 1
+    fi
+
+    # Check if function id already registered help text
+    for registered in "${_handle_args_registered_help_text_function_ids[@]}"
+    do
+        if [[ "$function_id" == "$registered" ]]
+        then
+            define error_info <<END_OF_ERROR_INFO
+Given <function_id> have already registered an help text: '$function_id'
+END_OF_ERROR_INFO
+            invalid_function_usage 2 "$function_usage" "$error_info"
+            exit 1
+        fi
+    done
+
+    if [[ -z "$help_text" ]]
+    then
+        define error_info <<END_OF_ERROR_INFO
+Given <help_text> is empty.
 END_OF_ERROR_INFO
         invalid_function_usage 2 "$function_usage" "$error_info"
         exit 1
@@ -398,13 +566,16 @@ END_OF_ERROR_INFO
 
     ### Append to global arrays
     #
-    # [*] used to save all space separated at the same index, to map all options
+    # [*] used to save all '§' separated at the same index, to map all options
     # to the same registered function name
+    local old_IFS="$IFS"
+    IFS='§'
     _handle_args_registered_function_ids+=("$function_id")
     _handle_args_registered_function_short_option+=("${short_option[*]}")
     _handle_args_registered_function_long_option+=("${long_option[*]}")
     _handle_args_registered_function_values+=("${expect_value[*]}")
     _handle_args_registered_function_descriptions+=("${description[*]}")
+    IFS="$old_IFS"
 }
 
 # Used for handling arrays as function parameters
