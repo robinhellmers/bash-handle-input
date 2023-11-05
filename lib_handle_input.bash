@@ -174,7 +174,7 @@ END_OF_HELP_TEXT
     done
 
     non_flagged_args=()
-    for i in "${arguments[@]}"
+    for i in "${!arguments[@]}"
     do
         is_long_flag "${arguments[i]}"; is_long_flag_exit_code=$?
 
@@ -203,27 +203,27 @@ END_OF_FUNCTION_USAGE
 
         local was_option_handled='false'
 
-        for i in "${!valid_short_options[@]}"
+        for j in "${!valid_short_options[@]}"
         do
             local derived_flag_name=""
-            if [[ "${arguments[i]}" == "${valid_long_options[$i]}" ]] || \
-               [[ "${arguments[i]}" == "${valid_short_options[$i]}" ]]
+            if [[ "${arguments[i]}" == "${valid_long_options[j]}" ]] || \
+               [[ "${arguments[i]}" == "${valid_short_options[j]}" ]]
             then
                 
                 # Find out variable naming prefix
                 # Prefer the long option name if it exists
-                if [[ "${valid_long_options[$i]}" != "_" ]]
+                if [[ "${valid_long_options[j]}" != "_" ]]
                 then
-                    derived_flag_name=$(get_long_flag_var_name "${valid_long_options[$i]}")
+                    derived_flag_name=$(get_long_flag_var_name "${valid_long_options[j]}")
                     derived_flag_name="${derived_flag_name}_flag"
                 else
-                    derived_flag_name="${valid_short_options[$i]#-}_flag"
+                    derived_flag_name="${valid_short_options[j]#-}_flag"
                 fi
 
                 # Indicate that flag was given
                 declare -g "$derived_flag_name"='true'
 
-                if [[ "${expects_value[$i]}" == 'true' ]]
+                if [[ "${expects_value[j]}" == 'true' ]]
                 then
                     ((i++))
 
@@ -233,7 +233,7 @@ END_OF_FUNCTION_USAGE
                     if [[ -z "${arguments[i]}" ]] || [[ "$first_character_hyphen" == 'true' ]]
                     then
                         define error_info <<END_OF_ERROR_INFO
-Option ${valid_short_options[$i]} and ${valid_long_options[$i]} expects a value supplied after it."
+Option ${valid_short_options[j]} and ${valid_long_options[j]} expects a value supplied after it."
 END_OF_ERROR_INFO
                         invalid_function_usage 1 "$function_usage" "$error_info"
                         exit 1
