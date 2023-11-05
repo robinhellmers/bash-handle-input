@@ -235,7 +235,7 @@ END_OF_FUNCTION_USAGE
                         define error_info <<END_OF_ERROR_INFO
 Option ${valid_short_options[j]} and ${valid_long_options[j]} expects a value supplied after it."
 END_OF_ERROR_INFO
-                        invalid_function_usage 1 "$function_usage" "$error_info"
+                        invalid_function_usage 2 "$function_usage" "$error_info"
                         exit 1
                     fi
 
@@ -252,8 +252,10 @@ END_OF_ERROR_INFO
         then
             define error_info <<END_OF_ERROR_INFO
 Given flag '${arguments[i]}' is not registered for function id: '$function_id'
+
+$(register_function_flags --help)
 END_OF_ERROR_INFO
-            invalid_function_usage 1 "$function_usage" "$error_info"
+            invalid_function_usage 3 "$function_usage" "$error_info"
             exit 1
         fi
     done
@@ -266,7 +268,7 @@ _validate_input_handle_args()
         define error_info <<'END_OF_ERROR_INFO'
 Given <function_id> is empty.
 END_OF_ERROR_INFO
-        invalid_function_usage 2 "$function_usage" "$error_info"
+        invalid_function_usage 3 "$function_usage" "$error_info"
         exit 1
     fi
 
@@ -288,8 +290,10 @@ END_OF_ERROR_INFO
         define error_info <<END_OF_ERROR_INFO
 Given <function_id> is not registered through register_function_flags() before
 calling _handle_args(). <function_id>: '$function_id'
+
+$(register_function_flags --help)
 END_OF_ERROR_INFO
-        invalid_function_usage 2 "$function_usage" "$error_info"
+        invalid_function_usage 3 "$function_usage" "$error_info"
         exit 1
     fi
 
@@ -311,8 +315,10 @@ END_OF_ERROR_INFO
         define error_info <<END_OF_ERROR_INFO
 Given <function_id> is not registered through register_help_text() before
 calling _handle_args(). <function_id>: '$function_id'
+
+$(register_help_text --help)
 END_OF_ERROR_INFO
-        invalid_function_usage 2 "$function_usage" "$error_info"
+        invalid_function_usage 3 "$function_usage" "$error_info"
         exit 1
     fi
 }
@@ -326,13 +332,16 @@ register_help_text()
     local function_id="$1"
     local help_text="$2"
 
+    # Special case for register_help_text(), manually parse for help flag
+    _handle_input_register_help_text "$1"
+
     _validate_input_register_help_text    
 
     _handle_args_registered_help_text_function_ids+=("$function_id")
     _handle_args_registered_help_text+=("$help_text")
 }
 
-_validate_input_register_help_text()
+_handle_input_register_help_text()
 {
     define function_usage <<END_OF_FUNCTION_USAGE
 Usage: register_help_text <function_id> <help_text>
@@ -350,6 +359,17 @@ Usage: register_help_text <function_id> <help_text>
       registered through register_function_flags().
 END_OF_FUNCTION_USAGE
 
+
+    # Manual check as _handle_args() cannot be used, creates circular dependency
+    if [[ "$1" == '-h' ]] || [[ "$1" == '--help' ]]
+    then
+        echo "$function_usage"
+        exit 0
+    fi
+}
+
+_validate_input_register_help_text()
+{
     if [[ -z "$function_id" ]]
     then
         define error_info <<END_OF_ERROR_INFO
@@ -390,37 +410,10 @@ _handle_args_registered_function_values=()
 
 # Register valid flags for a function
 register_function_flags() {
+    _handle_input_register_function_flags "$1" || return
+
     local function_id="$1"
     shift
-
-    define function_usage <<END_OF_FUNCTION_USAGE
-Usage: register_function_flags <function_id> \
-                               <short_flag_1> <long_flag_1> <expect_value_1> <description_1> \
-                               <short_flag_2> <long_flag_2> <expect_value_2> <description_2> \
-                               ...
-    Registers how many function flags as you want, always in a set of 4 input
-    arguments: <short_flag> <long_flag> <expect_value> <description>
-    
-    Either of <short_flag> or <long_flag> can be empty, but must then be entered
-    as an empty string "".
-
-    <function_id>:
-        * Each function can have its own set of flags. The function id is used
-          for identifying which flags to parse and how to parse them.
-            - Function id can e.g. be the function name.
-    <short_flag_#>:
-        * Single dash flag.
-        * E.g. '-e'
-    <long_flag_#>:
-        * Double dash flag
-        * E.g. '--echo'
-    <expect_value_#>:
-        * String boolean which indicates if an associated value is expected
-          after the flag.
-        * 'true' = There shall be a value supplied after the flag
-    <description_#>:
-        * Text description of the flag
-END_OF_FUNCTION_USAGE
 
     if [[ -z "$function_id" ]]
     then
@@ -576,6 +569,46 @@ END_OF_ERROR_INFO
     _handle_args_registered_function_values+=("${expect_value[*]}")
     _handle_args_registered_function_descriptions+=("${description[*]}")
     IFS="$old_IFS"
+}
+
+_handle_input_register_function_flags()
+{
+        define function_usage <<END_OF_FUNCTION_USAGE
+Usage: register_function_flags <function_id> \
+                               <short_flag_1> <long_flag_1> <expect_value_1> <description_1> \
+                               <short_flag_2> <long_flag_2> <expect_value_2> <description_2> \
+                               ...
+    Registers how many function flags as you want, always in a set of 4 input
+    arguments: <short_flag> <long_flag> <expect_value> <description>
+    
+    Either of <short_flag> or <long_flag> can be empty, but must then be entered
+    as an empty string "".
+
+    <function_id>:
+        * Each function can have its own set of flags. The function id is used
+          for identifying which flags to parse and how to parse them.
+            - Function id can e.g. be the function name.
+    <short_flag_#>:
+        * Single dash flag.
+        * E.g. '-e'
+    <long_flag_#>:
+        * Double dash flag
+        * E.g. '--echo'
+    <expect_value_#>:
+        * String boolean which indicates if an associated value is expected
+          after the flag.
+        * 'true' = There shall be a value supplied after the flag
+    <description_#>:
+        * Text description of the flag
+END_OF_FUNCTION_USAGE
+
+
+    # Manual check as _handle_args() cannot be used, creates circular dependency
+    if [[ "$1" == '-h' ]] || [[ "$1" == '--help' ]]
+    then
+        echo "$function_usage"
+        return 1
+    fi
 }
 
 # Used for handling arrays as function parameters
