@@ -61,6 +61,16 @@ END_OF_FUNCTION_USAGE
     # Output:
     # function_index
 
+    # Look for help flag -h/--help 
+    for arg in "${arguments[@]}"
+    do
+        if [[ "$arg" == '-h' ]] || [[ "$arg" == '--help' ]]
+        then
+            get_help_text "$function_id"
+            exit 0
+        fi
+    done
+
     local valid_short_options
     local valid_long_options
     local flags_descriptions
@@ -71,82 +81,6 @@ END_OF_FUNCTION_USAGE
 
     local expects_value="${_handle_args_registered_function_values[function_index]}"
     local registered_help_text="${_handle_args_registered_help_text[function_help_text_index]}"
-
-    # Look for help flag -h/--help 
-    for arg in "${arguments[@]}"
-    do
-        if [[ "$arg" == '-h' ]] || [[ "$arg" == '--help' ]]
-        then
-            
-            ###
-            # Compile together the whole help text with flag descriptions
-            local help_text
-            define help_text << END_OF_HELP_TEXT
-Usage: ${registered_help_text}
-
-Options:
-END_OF_HELP_TEXT
-
-            local array_flag_description_line=()
-            local max_line_length=0
-
-            ### 
-            # Construct help text lines & find max line length
-            for i in "${!flags_descriptions[@]}"
-            do
-                local flag_description_line="  "
-
-                # Short flag
-                if [[ "${valid_short_options[i]}" != '_' ]]
-                then
-                    flag_description_line+="${valid_short_options[i]}, "
-                fi
-
-                # Long flag
-                if [[ "${valid_long_options[i]}" != '_' ]]
-                then
-                    flag_description_line+="${valid_long_options[i]}"
-                fi
-                
-                flag_description_line+="   "
-
-                local line_length=$(wc -m <<< "$flag_description_line")
-                (( line_length-- ))
-                (( line_length > max_line_length )) && max_line_length=$line_length
-
-                array_flag_description_line+=("$flag_description_line")
-            done
-
-            ### 
-            # Reconstruct lines with good whitespacing using max line length
-            for i in "${!array_flag_description_line[@]}"
-            do
-                local flag_description_line="${array_flag_description_line[i]}"
-                local line_length=$(wc -m <<< "$flag_description_line")
-                ((line_length--))
-
-                local extra_whitespace=''
-                if (( line_length < max_line_length ))
-                then
-                    local diff_length=$((max_line_length - line_length))
-                    extra_whitespace="$(printf "%.s " $(seq $diff_length))"
-                fi
-
-                flag_description_line="${flag_description_line}${extra_whitespace}${flags_descriptions[i]}"
-                array_flag_description_line[i]="$flag_description_line"
-            done
-
-            ###
-            # Output text
-            echo "$help_text"
-            for line in "${array_flag_description_line[@]}"
-            do
-                echo "$line"
-            done
-
-            exit 0
-        fi
-    done
 
     # Declare and initialize output variables
     # <long/short option>_flag = 'false'
