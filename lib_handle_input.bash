@@ -83,12 +83,13 @@ END_OF_FUNCTION_USAGE
     local valid_short_options
     local valid_long_options
     local flags_descriptions
+    local expects_value
     # Convert space separated elements into an array
     IFS='§' read -ra valid_short_options <<< "${_handle_args_registered_function_short_option[function_index]}"
     IFS='§' read -ra valid_long_options <<< "${_handle_args_registered_function_long_option[function_index]}"
     IFS='§' read -ra flags_descriptions <<< "${_handle_args_registered_function_descriptions[function_index]}"
+    IFS='§' read -ra expects_value <<< "${_handle_args_registered_function_values[function_index]}"
 
-    local expects_value="${_handle_args_registered_function_values[function_index]}"
     local registered_help_text="${_handle_args_registered_help_text[function_help_text_index]}"
 
     # Declare and initialize output variables
@@ -117,7 +118,7 @@ END_OF_FUNCTION_USAGE
     done
 
     non_flagged_args=()
-    for i in "${!arguments[@]}"
+    for (( i=0; i<${#arguments[@]}; i++ ))
     do
         is_long_flag "${arguments[i]}"; is_long_flag_exit_code=$?
 
