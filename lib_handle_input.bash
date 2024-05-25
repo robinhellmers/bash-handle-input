@@ -31,7 +31,7 @@ init_lib()
     ### Source libraries ###
     #
     # Always start with 'lib_core.bash'
-    source "$LIB_PATH/lib_core.bash"
+    source "$LIB_PATH/lib_core.bash" || exit 1
 }
 
 init_lib
