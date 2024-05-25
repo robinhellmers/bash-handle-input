@@ -11,7 +11,7 @@ guard_source_max_once() {
     declare -gr "$guard_var=true"
 }
 
-guard_source_max_once || return
+guard_source_max_once || return 0
 
 ##############################
 ### Library initialization ###
